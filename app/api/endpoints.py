@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException
-from loguru import logger
+
+from app.core import logger
 from ..core.config import get_settings
 from .models import ChatRequest, ChatResponse
 from app.agent.agent import Agent, State

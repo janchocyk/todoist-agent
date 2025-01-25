@@ -1,16 +1,15 @@
 from typing import Optional, Dict, Any, List
-from todoist_api_python.api import TodoistAPI
+from todoist_api_python.api_async import TodoistAPIAsync
 
 
 from app.core.config import get_settings
-from app.core.logging import setup_logging
+from app.core import logger
 
-logger = setup_logging()
 settings = get_settings()
 
 class TodoistTools:
     def __init__(self):
-        self.api = TodoistAPI(settings.TODOIST_API_KEY)
+        self.api = TodoistAPIAsync(settings.TODOIST_API_KEY)
         
     async def create_task(self, 
                          title: str,
@@ -19,7 +18,7 @@ class TodoistTools:
                          priority: Optional[int] = None) -> Dict[str, Any]:
         """Create a new task in Todoist"""
         try:
-            task = self.api.add_task(
+            task = await self.api.add_task(
                 content=title,
                 due_string=due_date,
                 project_id=project_id,
@@ -34,7 +33,7 @@ class TodoistTools:
     async def complete_task(self, task_id: str) -> Dict[str, bool]:
         """Mark a task as completed"""
         try:
-            self.api.close_task(task_id=task_id)
+            await self.api.close_task(task_id=task_id)
             logger.info(f"Completed task: {task_id}")
             return {"success": True}
         except Exception as e:
@@ -44,7 +43,7 @@ class TodoistTools:
     async def get_tasks(self, project_id: Optional[str] = None) -> List[Dict[str, Any]]:
         """Get all tasks, optionally filtered by project"""
         try:
-            tasks = self.api.get_tasks(project_id=project_id)
+            tasks = await self.api.get_tasks(project_id=project_id)
             return [
                 {
                     "id": task.id,
@@ -62,7 +61,7 @@ class TodoistTools:
         """Update a task in Todoist"""
         try:
             # Get the task first to ensure it exists
-            task = self.api.get_task(task_id=task_id)
+            task = await self.api.get_task(task_id=task_id)
             
             # Prepare update data
             update_data = {}
@@ -76,7 +75,7 @@ class TodoistTools:
                 update_data["due_string"] = due_date
             
             # Update the task
-            self.api.update_task(task_id=task_id, **update_data)
+            await self.api.update_task(task_id=task_id, **update_data)
             logger.info(f"Updated task: {task_id}")
             
             return {"success": True, "task_id": task_id}
@@ -88,7 +87,7 @@ class TodoistTools:
     async def reopen_task(self, task_id: str) -> Dict[str, bool]:
         """Reopen a completed task"""
         try:
-            self.api.reopen_task(task_id=task_id)
+            await self.api.reopen_task(task_id=task_id)
             logger.info(f"Reopened task: {task_id}")
             return {"success": True}
         except Exception as e:
@@ -98,17 +97,19 @@ class TodoistTools:
     async def delete_task(self, task_id: str) -> Dict[str, bool]:
         """Delete a task from Todoist"""
         try:
-            self.api.delete_task(task_id=task_id)
+            await self.api.delete_task(task_id=task_id)
             logger.info(f"Deleted task: {task_id}")
             return {"success": True}
         except Exception as e:
             logger.error(f"Error deleting task: {str(e)}")
             return {"success": False, "error": str(e)}
 
-    async def get_projects(self) -> List[Dict[str, Any]]:
+    @classmethod
+    async def get_projects(cls) -> List[Dict[str, Any]]:
         """Get all projects from Todoist"""
         try:
-            projects = self.api.get_projects()
+            todoist_client = cls()
+            projects = await todoist_client.api.get_projects()
             return [
                 {
                     "id": project.id,
@@ -124,10 +125,12 @@ class TodoistTools:
             logger.error(f"Error getting projects: {str(e)}")
             return []
 
-    async def get_active_tasks(self) -> List[Dict[str, Any]]:
+    @classmethod
+    async def get_active_tasks(cls) -> List[Dict[str, Any]]:
         """Get all active (not completed) tasks"""
         try:
-            tasks = self.api.get_tasks()
+            todoist_client = cls()
+            tasks = await todoist_client.api.get_tasks()
             return [
                 {
                     "id": task.id,

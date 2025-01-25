@@ -4,12 +4,12 @@ from inspect import signature, Parameter, getdoc
 
 from pydantic import BaseModel
 from langgraph.graph import StateGraph, START, END
-from loguru import logger
 
 from app.agent.prompts import understand_prompt, execute_prompt
-from app.agent.tools import get_tools
+from app.agent.tools import get_tools, get_tool_descriptions
 from app.agent.openai_service import OpenAIService
 from app.agent.schema.response import AgentResponse, ExecuteResponse
+from app.core import logger
 
 
 class State(BaseModel):
@@ -79,26 +79,7 @@ class Agent:
 
     async def execute_tool(self, state: State) -> State:
         # Get tool descriptions with parameters
-        tool_descriptions = []
-        for name, tool in self.tools.items():
-            sig = signature(tool)
-            params = []
-            for param_name, param in sig.parameters.items():
-                if param.annotation == Parameter.empty:
-                    param_type = "any"
-                elif hasattr(param.annotation, "__name__"):
-                    param_type = param.annotation.__name__
-                else:
-                    param_type = str(param.annotation)
-                
-                default = f" (default: {param.default})" if param.default != Parameter.empty else ""
-                params.append(f"{param_name}: {param_type}{default}")
-            
-            params_str = ", ".join(params)
-            doc = getdoc(tool) or "No description available"
-            tool_descriptions.append(f"- {name}: {doc}\n  Parameters: {params_str}")
-        
-        tool_descriptions = "\n".join(tool_descriptions)
+        tool_descriptions = await get_tool_descriptions()
         logger.info(f"Tool descriptions: {tool_descriptions}")
 
         system_prompt = await execute_prompt(tool_descriptions)

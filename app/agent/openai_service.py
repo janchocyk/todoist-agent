@@ -1,9 +1,10 @@
 import json
 import re
 from typing import Any, Dict
-from loguru import logger
+
 from langfuse.openai import openai
 
+from app.core import logger
 
 class OpenAIService:
     def __init__(self):

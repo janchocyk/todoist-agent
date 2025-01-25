@@ -1,5 +1,6 @@
 # from langchain_core.tools import tool
 from typing import Optional, Dict, Any, List
+from inspect import signature, Parameter, getdoc
 
 from app.tools.todoist.tasks import TodoistTools
 
@@ -78,7 +79,7 @@ async def get_active_todoist_tasks() -> List[Dict[str, Any]]:
     """Get all active (not completed) Todoist tasks."""
     return await todoist.get_active_tasks()
 
-def get_tools():
+async def get_tools():
     return {
         "create_todoist_task": create_todoist_task,
         "complete_todoist_task": complete_todoist_task,
@@ -89,3 +90,24 @@ def get_tools():
         "get_todoist_projects": get_todoist_projects,
         "get_active_todoist_tasks": get_active_todoist_tasks
     }
+
+async def get_tool_descriptions():
+    tool_descriptions = []
+    for name, tool in get_tools().items():
+        sig = signature(tool)
+        params = []
+        for param_name, param in sig.parameters.items():
+            if param.annotation == Parameter.empty:
+                param_type = "any"
+            elif hasattr(param.annotation, "__name__"):
+                param_type = param.annotation.__name__
+            else:
+                param_type = str(param.annotation)
+            
+            default = f" (default: {param.default})" if param.default != Parameter.empty else ""
+            params.append(f"{param_name}: {param_type}{default}")
+        
+        params_str = ", ".join(params)
+        doc = getdoc(tool) or "No description available"
+        tool_descriptions.append(f"- {name}: {doc}\n  Parameters: {params_str}")
+    return "\n".join(tool_descriptions)
