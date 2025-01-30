@@ -1,65 +1,36 @@
 from typing import Dict, Any
 import json
+from loguru import logger
 
-from langgraph.graph import StateGraph, START, END
-
-from app.agent.prompts import understand_prompt, execute_prompt
-from app.agent.tools import get_tool_descriptions
-from app.agent.openai_service import OpenAIService
 from app.agent.schema.response import AgentResponse, ExecuteResponse
+from app.agent.prompts import understand_prompt, execute_prompt
+from app.agent.openai_service import OpenAIService
+from app.agent.tools import get_tool_descriptions
 from app.agent.schema import State
-from app.core import logger
 
-class Agent:
-    
-    def __init__(self, config: Dict[str, Any] = None):
-        """
-        Inicjalizacja agenta.
-        
-        Args:
-            config: Konfiguracja agenta
-        """
-        self.config = config or {}
+
+class Nodes:
+    def __init__(self):
         self.openai = OpenAIService()
-        self.workflow = self._create_workflow()
 
-    def _create_workflow(self) -> StateGraph:
-        """
-        Tworzy graf przepływu pracy agenta.
-        """
-        workflow = StateGraph(State)
-        
-        # Dodanie węzłów
-        workflow.add_node("understand", self.understand)
-        workflow.add_node("execute", self.execute_tool)
-        
-        # Dodanie krawędzi
-        workflow.add_edge(START, "understand")
-        workflow.add_edge("understand", "execute")
-        workflow.add_edge("execute", END)
-        
-        return workflow.compile()
-    
     @classmethod
-    async def process(cls, input: str) -> str:
-        agent = cls()
-        workflow = agent._create_workflow()
-        state = State(input=input)
-        result = await workflow.ainvoke(state)
-        return result
-    
-    async def understand(self, state: State) -> str:
+    async def understand(cls, state: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Node responsible for understanding user input and converting it to a structured format.
+        """
+        node = cls()
         system_prompt = await understand_prompt()
         messages = [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": state.input},
+            {"role": "user", "content": state["input"]},
         ]
         config = {
             "messages": messages,
             "jsonMode": True,
             "name": "understand",
         }
-        response = await self.openai.completion(config)
+
+        response = await node.openai.completion(config)
         try:
             response = json.loads(response)
             logger.info(f"Agent response: {response}")
@@ -106,7 +77,3 @@ class Agent:
             logger.error(f"Error executing tool: {e}")
             state.response = json.dumps({"error": str(e)})
             return state
-    
-    async def match_input_data(self, input: str) -> str:
-        pass
-    
