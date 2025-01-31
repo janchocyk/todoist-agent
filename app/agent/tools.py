@@ -8,6 +8,7 @@ todoist = TodoistTools()
 
 async def create_todoist_task(
     title: str,
+    description: Optional[str] = None,
     due_date: Optional[str] = None,
     project_id: Optional[str] = None,
     priority: Optional[int] = None
@@ -15,11 +16,12 @@ async def create_todoist_task(
     """Create a new task in Todoist.
     Args:
         title: The task title/content
+        description: Optional task description
         due_date: Optional due date (e.g. 'tomorrow', 'next monday')
         project_id: Optional project ID to add task to
         priority: Optional priority level (1-4)
     """
-    return await todoist.create_task(title, due_date, project_id, priority)
+    return await todoist.create_task(title, description, due_date, project_id, priority)
 
 async def complete_todoist_task(task_id: str) -> Dict[str, bool]:
     """Mark a Todoist task as completed. Other word task finished.
@@ -48,6 +50,7 @@ async def update_todoist_task(
     Args:
         task_id: The ID of the task to update
         title: Optional new title for the task
+        description: Optional new description for the task
         priority: Optional new priority (1-4)
         due_date: Optional new due date
     """
@@ -93,7 +96,8 @@ async def get_tools():
 
 async def get_tool_descriptions():
     tool_descriptions = []
-    for name, tool in get_tools().items():
+    tools = await get_tools()
+    for name, tool in tools.items():
         sig = signature(tool)
         params = []
         for param_name, param in sig.parameters.items():

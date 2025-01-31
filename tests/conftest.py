@@ -13,7 +13,7 @@ from fastapi import FastAPI
 project_root = str(Path(__file__).parent.parent)
 sys.path.insert(0, project_root)
 
-from main import app
+from app.__main__ import app
 from app.tools.todoist.tasks import TodoistTools
 
 # Load test environment variables

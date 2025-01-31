@@ -7,7 +7,7 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     success: bool
-    details: str = Field(description="The response message from the agent")
+    details: Dict[str, Any] = Field(description="The response message from the agent")
     error: Optional[str] = None
 
 class AgentRequest(BaseModel):

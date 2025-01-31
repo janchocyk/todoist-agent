@@ -27,27 +27,20 @@ async def chat_with_agent(request: ChatRequest) -> ChatResponse:
         # Process the request through the agent
         logger.info("Starting agent processing")
         result = await Agent.process(request.input)
-        
-        # if not result["success"]:
-        #     logger.error(f"Agent processing failed: {result.get('error', 'Unknown error')}")
-        #     raise HTTPException(
-        #         status_code=500,
-        #         detail=result.get("error", "Unknown error occurred")
-        #     )
             
         logger.info("Successfully processed request")
         logger.debug(f"Agent response: {result['response']}")
         
         return ChatResponse(
             success=True,
-            details=result["response"]
+            details=result
         )
         
     except HTTPException as e:
         logger.error(f"HTTP error occurred: {e.detail}")
         raise e
     except Exception as e:
-        # logger.error(f"Unexpected error processing request: {str(e)}", exc_info=True)
+        logger.error(f"Unexpected error processing request: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=500,
             detail=str(e)

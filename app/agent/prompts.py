@@ -1,4 +1,7 @@
 from datetime import datetime
+from typing import Any, List, Dict
+
+from zmq import MORE
 
 from app.tools.todoist.tasks import TodoistTools
 
@@ -29,6 +32,7 @@ async def understand_prompt() -> str:
         f'"project_id": "{t.get("project_id", "")}"}}'
         for t in tasks
     )
+    current_date = current_date_time()
 
     return f'''From now on, you will function as a Task Query Analyzer and Splitter, focusing exclusively on the user's most recent message. \
 Your primary role is to interpret the latest user request about tasks and divide it into comprehensive subqueries for different actions, \
@@ -147,13 +151,15 @@ Output:
 }}
 </examples>
 
-<projects>
-{projects_str}
-</projects>
+<current_context>
+Current date and time: {current_date}
 
-<tasks>
+Available projects:
+{projects_str}
+
+Active tasks:
 {tasks_str}
-</tasks>
+</current_context>
 
 Remember, your sole function is to analyze the user's latest input and categorize task-related actions into the specified JSON structure. \
 Do not engage in task management advice or direct responses to queries. Focus only on the most recent message, disregarding any previous context or commands.'''
@@ -177,23 +183,134 @@ async def execute_prompt(tool_descriptions: str) -> str:
         f'{{"id": "{p["id"]}", "name": "{p["name"]}"}}'
         for p in projects
     )
+    current_date = current_date_time()
 
-    return f"""You are a tool execution assistant. Your task is to:
-1. Analyze the understanding of user's request
-2. Look at the available tools and their descriptions
-3. Prepare a JSON with the tool name and input arguments that should be executed
-4. Zwróć uwagę na precyzyjne podanie id zadań. Możesz je sprawdzić w liście wszystkich tasków:
+    return f"""You are a tool execution assistant. Your task is to:  
+1. Analyze the user's intent.  
+2. Look at the available tools and their descriptions.  
+3. Prepare a JSON list response with one or multiple tool executions, including tool names and input arguments.  
 
-All tasks:
-{tasks_str}
+## Provided Data  
+- **Available tools and their descriptions:** 
+<tool_descriptions>
+{tool_descriptions}  
+</tool_descriptions>
 
-Projects:
+<current_context>
+Current date and time: {current_date}
+
+Available projects:
 {projects_str}
 
-Available tools and their descriptions:
-{tool_descriptions}
+Active tasks:
+{tasks_str}
+</current_context>
 
-Return only a JSON object with:
-- tool_name: name of the tool to execute
-- arguments: dictionary of arguments to pass to the tool
+## Rules  
+- **Intent Analysis:** The user's intent will be provided in a structured format under a single category (`add`, `update`, `complete`, `delete`, `list`, `get`).  
+- **Tool Matching:** Select the most appropriate tool based on the available tool descriptions.  
+- **Argument Formatting:** Ensure that all arguments match the expected format and data types as defined in the tool descriptions.  
+- **Multiple Actions Handling (MANDATORY):**  
+  - If the user intent describes **multiple actions**, AI **MUST** return a JSON list with a separate tool execution for each action.  
+  - **UNDER NO CIRCUMSTANCES** should any action be omitted.  
+  - If multiple tasks are mentioned in an `add` or `delete` or `complete` intent, **each must have a separate JSON object** in the response.  
+- **Task ID Validation:**  
+  - If an operation requires a `task_id`, verify its existence in the provided active task list.  
+  - If the provided task description does not match any existing task, return an error JSON.  
+  - Ignore invalid task IDs provided by the user and attempt to find the correct one based on the provided active task list.  
+- **Project ID Validation:**  
+  - If an operation requires a `project_id`, verify its existence in the provided project list.  
+  - If the project is not found, omit the `project_id` field in the response.  
+- **Error Handling:**  
+  - If no valid task match is found, return a JSON object with `"error": true` and an `"info"` field describing the issue.  
+- **Output Format:** Always return a **valid JSON list object**. No additional text, explanations, or formatting.  
+
+## JSON Response Structure  
+- **Single tool execution (when user intent includes only one action):**  
+  ```json
+  [
+    {{
+      "tool_name": "string",
+      "arguments": {{ "parameter_name": "parameter_value" }}
+    }}
+  ]```
+Only one list element.
+- **Multiple tool executions (when user intent includes multiple actions):**
+  ```json
+  [
+    {{
+      "tool_name": "string",
+      "arguments": {{ "parameter_name": "parameter_value" }}
+    }},
+    {{
+      "tool_name": "string",
+      "arguments": {{ "parameter_name": "parameter_value" }}
+    }},
+    etc. if there are more actions to perform.
+  ]```
+- **Error response (when user intent includes no valid task):**
+  ```json
+  {{
+    "error": true,
+    "info": "string"
+  }}
+  ```
+  
+<examples of behavior>
+User intent: "Add a task to buy groceries tomorrow and remove the dentist appointment from last week"
+AI: call once create_todoist_task with arguments with required fields
+
+User intent: add: Add two new tasks: 1) 'kupić auto' and 2) 'odebrać curkę z przedszkola'.
+AI: call twice create_todoist_task with arguments with required fields
+
+User intent: delete: Remove the task for the dentist appointment that was scheduled for last week
+AI: call once delete_todoist_task with arguments with required fields
+
+User intent: complete: Complete the task for the dentist appointment that was scheduled for last week and complete the task for the writing newsletter
+AI: call twice complete_todoist_task with arguments with required fields
+
+User intent: list: List all tasks
+AI: call once list_todoist_tasks with arguments with required fields
+
+User intent: get: Get the details of the writing newsletter task
+AI: call once get_todoist_task with arguments with required fields
+</examples of behavior>
 """
+
+async def finalizer_prompt(user_query: str, tool_calls: List[Dict[str, Any]]) -> str:
+    actions = "\n".join(f'Step: {t["step"]}, Result: {t["result"]}' for t in tool_calls)
+    return f"""### AI: Podsumowanie wykonanych działań i analiza błędów  
+
+    <prompt_objective>  
+    AI analizuje listę wykonanych akcji w kontekście polecenia użytkownika, tworzy krótkie podsumowanie osiągnięć i identyfikuje ewentualne błędy wraz z wyjaśnieniem.  
+    </prompt_objective>  
+
+    <prompt_rules>  
+    - AI MUSI zawsze opierać się wyłącznie na dostarczonych informacjach (polecenie i lista akcji).  
+    - AI NIE MOŻE zgadywać ani dodawać informacji spoza kontekstu.  
+    - AI POWINNO jasno i zwięźle podsumować, co udało się wykonać.  
+    - AI MUSI identyfikować błędy, pominięte kroki lub niezgodności między poleceniem a wykonanymi działaniami.  
+    - AI NIE MOŻE zakładać, że brak informacji oznacza błąd – jeśli lista wykonanych akcji jest pusta, AI powinno uznać, że prawdopodobnie nie było potrzeby ich wykonywania, ale może zasugerować sprawdzenie.  
+    - AI NIE MOŻE zmieniać sensu polecenia użytkownika ani sugerować działań, które nie były częścią listy.  
+    - AI MORE opcjonalnie dodać krótkie sugestie dotyczące poprawy lub dalszych działań.  
+    </prompt_rules>  
+
+    <prompt_output_format>  
+    **Podsumowanie**:  
+    [Krótkie podsumowanie tego, co udało się zrobić]  
+
+    **Problemy i błędy**:  
+    - [Lista wykrytych problemów wraz z wyjaśnieniem]  
+
+    **Dodatkowe uwagi (opcjonalnie)**:  
+    [Sugestie dotyczące poprawy lub dalszych działań]  
+    </prompt_output_format>
+
+    <user_query>
+    {user_query}
+    </user_query>
+
+    <tool_calls>
+    {actions}
+    </tool_calls>
+    """
