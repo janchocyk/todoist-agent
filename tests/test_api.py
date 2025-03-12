@@ -1,6 +1,6 @@
 import pytest
 from httpx import AsyncClient
-from main import app
+from app.__main__ import app
 
 @pytest.mark.asyncio
 async def test_chat_endpoint_text(client):

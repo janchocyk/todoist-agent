@@ -2,7 +2,6 @@ fastapi>=0.104.1
 uvicorn>=0.24.0
 python-dotenv>=1.0.0
 langgraph>=0.0.15
-anthropic>=0.7.7
 langchain-anthropic>=0.0.4
 todoist-api-python>=2.1.3
 pydantic>=2.5.2
@@ -11,6 +10,7 @@ python-multipart>=0.0.6
 loguru>=0.7.2
 langfuse
 openai
+pyzmq
 
 # Test dependencies
 pytest>=7.4.3

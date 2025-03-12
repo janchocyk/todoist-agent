@@ -13,6 +13,7 @@ class TodoistTools:
         
     async def create_task(self, 
                          title: str,
+                         description: str,
                          due_date: Optional[str] = None,
                          project_id: Optional[str] = None,
                          priority: Optional[int] = None) -> Dict[str, Any]:
@@ -20,6 +21,7 @@ class TodoistTools:
         try:
             task = await self.api.add_task(
                 content=title,
+                description=description,
                 due_string=due_date,
                 project_id=project_id,
                 priority=priority

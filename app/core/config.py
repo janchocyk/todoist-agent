@@ -1,9 +1,9 @@
 from pydantic_settings import BaseSettings
 from functools import lru_cache
 from pydantic import Field
-from dotenv import load_dotenv, find_dotenv
+# from dotenv import load_dotenv, find_dotenv
 
-load_dotenv(find_dotenv(), override=True)
+# load_dotenv(find_dotenv(), override=True)
 
 class Settings(BaseSettings):
     OPENAI_API_KEY: str = Field(..., env="OPENAI_API_KEY")
@@ -23,9 +23,10 @@ class Settings(BaseSettings):
     MAX_TOKENS: int = 4096
     
     class Config:
-        env_file = ".env"
+        # env_file = ".env"
         case_sensitive = True
 
 @lru_cache()
 def get_settings() -> Settings:
-    return Settings()
+    settings = Settings()
+    return settings
