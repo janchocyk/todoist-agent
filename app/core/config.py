@@ -28,8 +28,5 @@ class Settings(BaseSettings):
 
 @lru_cache()
 def get_settings() -> Settings:
-    import os
-    print("Available env vars:", {k: v for k, v in os.environ.items() if any(x in k for x in ['TODOIST', 'OPENAI', 'LANGFUSE'])})
     settings = Settings()
-    print("Loaded settings:", settings.dict())
     return settings

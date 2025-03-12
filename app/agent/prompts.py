@@ -275,6 +275,88 @@ AI: call once list_todoist_tasks with arguments with required fields
 User intent: get: Get the details of the writing newsletter task
 AI: call once get_todoist_task with arguments with required fields
 </examples of behavior>
+
+# Example 1: Adding Two New Tasks  
+
+**User Intent**:  
+add: Add two new tasks: 1) 'Buy groceries at Lidl' for tomorrow, 2) 'Write a report for work' in the "Work" project.
+
+**Expected JSON Output:**  
+```json
+[
+  {{
+    "tool_name": "create_todoist_task",
+    "arguments": {{
+      "title": "Buy groceries at Lidl",
+      "due_date": "tomorrow"
+    }}
+  }},
+  {{
+    "tool_name": "create_todoist_task",
+    "arguments": {{
+      "title": "Write a report for work",
+      "project_id": "2347580668"
+    }}
+  }}
+]```
+
+# Example 2: Completing an Existing Task
+**User Intent**:  
+complete: Mark the task 'learn English' as completed.
+
+**Expected JSON Output**:
+```json
+[
+  {{
+    "tool_name": "complete_todoist_task",
+    "arguments": {{
+      "task_id": "8829612968"
+    }}
+  }}
+]```
+
+# Example 3: Attempting to Delete a Non-Existent Task
+**User Intent**:  
+delete: Remove the task 'Client meeting' from the list.
+
+delete: Remove the task 'Client meeting' from the list.
+Expected JSON Output (error, since the task does not exist):
+```json
+{{
+  "error": true,
+  "info": "No matching task found for deletion: 'Client meeting'."
+}}
+```
+
+# Example 4: Updating an Existing Task
+**User Intent**:  
+update: Change the task name 'Invoice module implementation' to 'Finish the Invoice module' and set the priority to 2.
+
+**Expected JSON Output**:
+```json
+[
+  {{
+    "tool_name": "update_todoist_task",
+    "arguments": {{
+      "task_id": "8832634991",
+      "title": "Finish the Invoice module",
+      "priority": 2
+    }}
+  }}
+]```
+
+# Example 5: Retrieving a List of Active Tasks
+**User Intent**:  
+
+list: Show all active tasks.
+**Expected JSON Output**:
+```json
+[
+  {{
+    "tool_name": "get_active_todoist_tasks",
+    "arguments": {{}}
+  }}
+]```
 """
 
 async def finalizer_prompt(user_query: str, tool_calls: List[Dict[str, Any]]) -> str:
